@@ -22,7 +22,7 @@
   </head>
 
   <body>
-    <script src="http://localhost:5557/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script type="module">
       import { FramingStructure } from './structure.js'
       import * as THREE from 'https://unpkg.com/three@0.111.0/build/three.module.js'
@@ -107,7 +107,7 @@
         //   addText('meow')
         // }, 64)
         if (typeof io !== 'undefined') {
-          const socket = io('http://localhost:5557')
+          const socket = io()
           socket.on('filechange', p => {
             const f = p.split('/').pop()
             if (f) {
