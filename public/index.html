@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>three.js webgl - orbit controls</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <link type="text/css" rel="stylesheet" href="main.css" />
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        margin: 0;
+      }
+
+      a {
+        color: #f00;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script src="http://localhost:5557/socket.io/socket.io.js"></script>
+    <script type="module">
+      import { FramingStructure } from './structure.js'
+      import * as THREE from 'https://unpkg.com/three@0.111.0/build/three.module.js'
+
+      var camera, controls, scene, renderer, jewel
+
+      const activeObjects = new Set()
+      const addQueue = []
+      const state = {
+        elevate: 0,
+        mouseY: 0.5,
+      }
+
+      let cat
+
+      init()
+      animate()
+
+      function updateCamera(now) {
+        state.elevate += (state.mouseY * 64 - state.elevate) / 4
+        const theta = -now / 10e3
+        const r = 24
+        camera.position.set(
+          Math.sin(theta) * r,
+          state.elevate,
+          Math.cos(theta) * r,
+        )
+        camera.lookAt(0, 56, 0)
+        camera.updateProjectionMatrix()
+      }
+
+      function init() {
+        const now = Date.now()
+        scene = new THREE.Scene()
+        scene.background = new THREE.Color(0x000000)
+        scene.fog = new THREE.FogExp2(0xcccccc, 0.002)
+
+        renderer = new THREE.WebGLRenderer({ antialias: true })
+        renderer.setPixelRatio(window.devicePixelRatio)
+        renderer.setSize(window.innerWidth, window.innerHeight)
+        document.body.appendChild(renderer.domElement)
+
+        camera = new THREE.PerspectiveCamera(
+          60,
+          window.innerWidth / window.innerHeight,
+          1,
+          1000,
+        )
+        updateCamera(now)
+
+        var geometry = new THREE.BufferGeometry()
+        var vertices = new Float32Array(
+          FramingStructure.faces.flatMap(vertices => {
+            return vertices.flatMap(vert => {
+              const ring = FramingStructure.rings[vert.ring]
+              const x = Math.cos(vert.theta) * ring.r
+              const z = Math.sin(vert.theta) * ring.r
+              const y = ring.y
+              return [x, y, z]
+            })
+          }),
+        )
+
+        // itemSize = 3 because there are 3 values (components) per vertex
+        geometry.setAttribute(
+          'position',
+          new THREE.BufferAttribute(vertices, 3),
+        )
+
+        var material = new THREE.MeshBasicMaterial({
+          color: 0x999999,
+          wireframe: true,
+        })
+
+        var mesh = new THREE.Mesh(geometry, material)
+        scene.add(mesh)
+        jewel = mesh
+
+        window.addEventListener('resize', onWindowResize, false)
+
+        // setInterval(() => {
+        //   addText('meow')
+        // }, 64)
+        if (typeof io !== 'undefined') {
+          const socket = io('http://localhost:5557')
+          socket.on('filechange', p => {
+            const f = p.split('/').pop()
+            if (f) {
+              addText(f)
+            }
+          })
+        }
+        {
+          let texture = new THREE.TextureLoader().load('unicat.png')
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+          })
+          material.side = THREE.DoubleSide
+          material.depthWrite = false
+          material.transparent = true
+          cat = material
+        }
+      }
+
+      const textMaterialMap = new Map()
+      function getTextMaterial(text) {
+        if (textMaterialMap.has(text)) return textMaterialMap.get(text)
+        let bitmap = document.createElement('canvas')
+        bitmap.width = 256
+        bitmap.height = 64
+        let g = bitmap.getContext('2d')
+        g.font = '40px sans-serif'
+        g.fillStyle = 'white'
+        g.fillText(text, 128 - Math.min(g.measureText(text).width, 128), 40)
+        let texture = new THREE.Texture(bitmap)
+        texture.needsUpdate = true
+        const color = new THREE.Color()
+        color.setHSL((textMaterialMap.size / 20) % 1, 1, 0.5)
+        let material = new THREE.MeshBasicMaterial({
+          map: texture,
+          color: color,
+        })
+        material.side = THREE.DoubleSide
+        material.depthWrite = false
+        material.transparent = true
+        material.blending = THREE.AdditiveBlending
+        textMaterialMap.set(text, material)
+        return material
+      }
+
+      function addText(text) {
+        addQueue.push(text)
+      }
+
+      function reallyAddText(text) {
+        const material = getTextMaterial(text)
+        let geometry = new THREE.PlaneGeometry(4 * 1.5, 1 * 1.5)
+        let mesh = new THREE.Mesh(geometry, material)
+        drop(mesh, Math.PI / 2)
+      }
+      function reallyAddCat() {
+        if (!cat) return
+        let geometry = new THREE.PlaneGeometry(10, 10)
+        let mesh = new THREE.Mesh(geometry, cat)
+        drop(mesh, 0, (Math.random() - 0.5) * 0.1)
+        console.log(cat)
+      }
+      window.onclick = reallyAddCat
+      function drop(mesh, rz = 0, rr = 0) {
+        let ring = FramingStructure.rings[0]
+        let theta = Math.random() * Math.PI * 2
+        const start = Date.now()
+        const ctrl = {
+          update(now) {
+            const elapsed = (now - start) / 1e3
+            const y = ring.y - elapsed * elapsed * 20
+            const r = ring.r - elapsed * 2
+            mesh.position.set(Math.sin(theta) * r, y, Math.cos(theta) * r)
+            if (rr) mesh.rotateZ(rr)
+            if (y < 0) {
+              scene.remove(mesh)
+              activeObjects.delete(ctrl)
+            }
+          },
+        }
+        ctrl.update(start)
+        mesh.lookAt(camera.position)
+        mesh.rotateZ(rz)
+        activeObjects.add(ctrl)
+        scene.add(mesh)
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight
+        camera.updateProjectionMatrix()
+
+        renderer.setSize(window.innerWidth, window.innerHeight)
+      }
+
+      function animate() {
+        requestAnimationFrame(animate)
+        if (addQueue.length) {
+          for (const t of addQueue.splice(0, 50)) {
+            reallyAddText(t)
+          }
+        }
+        const now = Date.now()
+        updateCamera(now)
+        for (const t of activeObjects) t.update(now)
+        render()
+      }
+
+      function render() {
+        renderer.render(scene, camera)
+      }
+      window.onmousemove = e => {
+        state.mouseY = e.clientY / window.innerHeight
+      }
+
+      Object.assign(window, { addText })
+    </script>
+  </body>
+</html>
