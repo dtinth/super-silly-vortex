@@ -92,7 +92,7 @@ When I first presented this during the event I had only 5 minutes and no time to
 
 <p align="center"><img src="./slides/slides.023.jpeg" width="640" /></p>
 
-### I also learned that [OVER NINE THOUSAND](https://www.channelnewsasia.com/news/singapore/building-the-jewel-a-close-up-look-at-the-9-000-pieces-of-glass-10149674) glass panels are being used. However, as I take closer look, I found several mismatches between the models and the actual observations:
+### I also learned that [OVER NINE THOUSAND](https://www.youtube.com/watch?v=SiMHTK15Pik&feature=youtu.be&t=10) glass panels [are being used](https://www.channelnewsasia.com/news/singapore/building-the-jewel-a-close-up-look-at-the-9-000-pieces-of-glass-10149674). However, as I take closer look, I found several mismatches between the models and the actual observations:
 
 <p align="center"><img src="./slides/slides.024.jpeg" width="640" /></p>
 
